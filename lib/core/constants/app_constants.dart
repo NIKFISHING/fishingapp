@@ -31,6 +31,13 @@ class SupabaseTables {
   static const String products = 'products';
 }
 
+/// Названия бакетов Supabase Storage.
+class SupabaseBuckets {
+  SupabaseBuckets._();
+
+  static const String avatars = 'avatars';
+}
+
 /// Общие текстовые константы приложения.
 class AppStrings {
   AppStrings._();

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../models/message_model.dart';
+import '../../../models/user_model.dart';
 import '../../../services/supabase_service.dart';
 
 /// Хранит сообщения чата конкретного региона: подгружает историю из
@@ -22,18 +23,47 @@ class ChatController extends StateNotifier<AsyncValue<List<MessageModel>>> {
   final String regionId;
   RealtimeChannel? _channel;
 
+  /// Кэш имени/аватара авторов по их id — заполняется join'ом при загрузке
+  /// истории и точечными запросами для новых авторов из realtime (сам
+  /// Postgres Changes payload приходит без join на `users`).
+  final Map<String, UserModel> _authorCache = {};
+
   Future<void> _init() async {
     try {
       final rows = await SupabaseService.client
           .from(SupabaseTables.messages)
-          .select()
+          .select('*, author:users(id, phone, name, avatar_url)')
           .eq('region_id', regionId)
           .order('created_at');
-      state = AsyncData(rows.map(MessageModel.fromJson).toList());
+
+      final messages = rows.map((row) {
+        final authorJson = row['author'] as Map<String, dynamic>?;
+        if (authorJson != null) {
+          final author = UserModel.fromJson(authorJson);
+          _authorCache[author.id] = author;
+        }
+        return _applyAuthor(MessageModel.fromJson(row), row['author_id'] as String);
+      }).toList();
+
+      state = AsyncData(messages);
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);
     }
     _subscribeToRealtime();
+  }
+
+  /// Подставляет имя/аватар из кэша в сообщение: приоритет — заполненное
+  /// имя пользователя, иначе телефон, иначе общая подпись из fromJson.
+  MessageModel _applyAuthor(MessageModel message, String authorId) {
+    final author = _authorCache[authorId];
+    if (author == null) return message;
+    final name = author.name;
+    final resolvedName =
+        (name != null && name.trim().isNotEmpty) ? name.trim() : author.phone;
+    return message.copyWithAuthor(
+      authorName: resolvedName,
+      authorAvatarUrl: author.avatarUrl,
+    );
   }
 
   void _subscribeToRealtime() {
@@ -48,11 +78,31 @@ class ChatController extends StateNotifier<AsyncValue<List<MessageModel>>> {
             column: 'region_id',
             value: regionId,
           ),
-          callback: (payload) {
-            final message = MessageModel.fromJson(payload.newRecord);
+          callback: (payload) async {
+            var message = MessageModel.fromJson(payload.newRecord);
             final current = state.valueOrNull ?? [];
             if (current.any((m) => m.id == message.id)) return;
-            state = AsyncData([...current, message]);
+
+            if (!_authorCache.containsKey(message.authorId)) {
+              try {
+                final row = await SupabaseService.client
+                    .from(SupabaseTables.users)
+                    .select()
+                    .eq('id', message.authorId)
+                    .maybeSingle();
+                if (row != null) {
+                  _authorCache[message.authorId] = UserModel.fromJson(row);
+                }
+              } catch (_) {
+                // RLS может скрыть профиль (например, аноним смотрит чат) —
+                // тогда просто остаётся общая подпись из fromJson.
+              }
+            }
+            message = _applyAuthor(message, message.authorId);
+
+            final latest = state.valueOrNull ?? [];
+            if (latest.any((m) => m.id == message.id)) return;
+            state = AsyncData([...latest, message]);
           },
         )
         .subscribe();

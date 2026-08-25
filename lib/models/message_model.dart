@@ -8,6 +8,7 @@ class MessageModel {
     required this.createdAt,
     this.text,
     this.photoUrl,
+    this.authorAvatarUrl,
   });
 
   final String id;
@@ -17,6 +18,7 @@ class MessageModel {
   final DateTime createdAt;
   final String? text;
   final String? photoUrl;
+  final String? authorAvatarUrl;
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     return MessageModel(
@@ -27,6 +29,22 @@ class MessageModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       text: json['text'] as String?,
       photoUrl: json['photo_url'] as String?,
+    );
+  }
+
+  /// Возвращает копию с подставленными именем/аватаром автора — используется,
+  /// когда имя/фото пользователя резолвятся отдельным запросом к `users`
+  /// (join при загрузке истории, кэш при новых сообщениях из realtime).
+  MessageModel copyWithAuthor({String? authorName, String? authorAvatarUrl}) {
+    return MessageModel(
+      id: id,
+      regionId: regionId,
+      authorId: authorId,
+      authorName: authorName ?? this.authorName,
+      createdAt: createdAt,
+      text: text,
+      photoUrl: photoUrl,
+      authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
     );
   }
 

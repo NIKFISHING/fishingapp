@@ -1,5 +1,7 @@
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/constants/app_constants.dart';
+import '../models/user_model.dart';
 
 /// Обёртка над Supabase-клиентом: инициализация SDK и методы
 /// авторизации по номеру телефона (SMS-код).
@@ -69,5 +71,55 @@ class SupabaseService {
       'id': user.id,
       'phone': user.phone ?? '',
     });
+  }
+
+  /// Загружает профиль текущего пользователя (имя, аватар) из таблицы
+  /// `users`. null, если нет реальной сессии (в т.ч. в dev-режиме).
+  static Future<UserModel?> fetchCurrentUserProfile() async {
+    final user = currentUser;
+    if (user == null) return null;
+    final row = await client
+        .from(SupabaseTables.users)
+        .select()
+        .eq('id', user.id)
+        .maybeSingle();
+    if (row == null) return null;
+    return UserModel.fromJson(row);
+  }
+
+  /// Обновляет имя и/или ссылку на аватар текущего пользователя.
+  static Future<void> updateProfile({String? name, String? avatarUrl}) async {
+    final user = currentUser;
+    if (user == null) return;
+    await client.from(SupabaseTables.users).upsert({
+      'id': user.id,
+      'phone': user.phone ?? '',
+      if (name != null) 'name': name,
+      if (avatarUrl != null) 'avatar_url': avatarUrl,
+    });
+  }
+
+  /// Загружает фото профиля в Supabase Storage (бакет `avatars`, путь
+  /// "{user_id}/avatar" — новая загрузка перезаписывает старую) и
+  /// возвращает публичный URL. Требует настоящую сессию Supabase.
+  static Future<String> uploadAvatar(XFile photo) async {
+    final user = currentUser;
+    if (user == null) {
+      throw StateError('Нет авторизованного пользователя для загрузки аватара.');
+    }
+    final bytes = await photo.readAsBytes();
+    final path = '${user.id}/avatar';
+    await client.storage.from(SupabaseBuckets.avatars).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(
+            contentType: photo.mimeType ?? 'image/jpeg',
+            upsert: true,
+          ),
+        );
+    final publicUrl = client.storage.from(SupabaseBuckets.avatars).getPublicUrl(path);
+    // Путь не меняется между загрузками — добавляем метку времени, чтобы
+    // Image.network не показывал закэшированную старую версию фото.
+    return '$publicUrl?updated=${DateTime.now().millisecondsSinceEpoch}';
   }
 }

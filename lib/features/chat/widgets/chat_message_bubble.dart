@@ -20,65 +20,91 @@ class ChatMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final time = DateFormat.Hm().format(message.createdAt);
 
-    return Align(
-      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.all(12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        decoration: BoxDecoration(
-          color: isMine ? AppColors.primaryLight : AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.divider),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (!isMine)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 4),
-                child: Text(
-                  message.authorName,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                    fontSize: 12,
-                  ),
+    final bubble = Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.all(12),
+      constraints: BoxConstraints(
+        // Чужим сообщениям чуть меньше места — рядом ещё аватар автора.
+        maxWidth: MediaQuery.of(context).size.width * (isMine ? 0.75 : 0.65),
+      ),
+      decoration: BoxDecoration(
+        color: isMine ? AppColors.primaryLight : AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.divider),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isMine)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                message.authorName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                  fontSize: 12,
                 ),
-              ),
-            if (message.photoUrl != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.file(
-                  File(message.photoUrl!),
-                  width: 200,
-                  height: 150,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    width: 200,
-                    height: 150,
-                    color: AppColors.primaryLight,
-                    child: const Icon(Icons.image_not_supported_outlined),
-                  ),
-                ),
-              ),
-            if (message.text != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(message.text!),
-              ),
-            const SizedBox(height: 4),
-            Text(
-              time,
-              style: const TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary,
               ),
             ),
-          ],
-        ),
+          if (message.photoUrl != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.file(
+                File(message.photoUrl!),
+                width: 200,
+                height: 150,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => Container(
+                  width: 200,
+                  height: 150,
+                  color: AppColors.primaryLight,
+                  child: const Icon(Icons.image_not_supported_outlined),
+                ),
+              ),
+            ),
+          if (message.text != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(message.text!),
+            ),
+          const SizedBox(height: 4),
+          Text(
+            time,
+            style: const TextStyle(
+              fontSize: 11,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isMine) {
+      return Align(alignment: Alignment.centerRight, child: bubble);
+    }
+
+    // Чужие сообщения — с аватаром автора слева от пузыря (заглушка-иконка,
+    // если фото профиля не загружено).
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: AppColors.primaryLight,
+            backgroundImage: message.authorAvatarUrl != null
+                ? NetworkImage(message.authorAvatarUrl!)
+                : null,
+            child: message.authorAvatarUrl == null
+                ? const Icon(Icons.person, size: 16, color: AppColors.primary)
+                : null,
+          ),
+          const SizedBox(width: 6),
+          Flexible(child: bubble),
+        ],
       ),
     );
   }
