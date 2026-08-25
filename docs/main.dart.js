@@ -28660,7 +28660,7 @@ return A.y($async$a1v,r)},
 anD(){var s=0,r=A.z(t.H)
 var $async$anD=A.v(function(a,b){if(a===1)return A.w(b,r)
 for(;;)switch(s){case 0:s=2
-return A.q(A.anK("your-anon-key","https://your-project.supabase.co"),$async$anD)
+return A.q(A.anK("sb_publishable_CV9BsOIVrFioqp6vkyJEOw_b3AYEClA","https://kvwnmxerwenxippfxzhl.supabase.co"),$async$anD)
 case 2:return A.x(null,r)}})
 return A.y($async$anD,r)},
 anE(){var s,r
