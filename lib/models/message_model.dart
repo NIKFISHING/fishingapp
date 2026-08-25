@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 /// Модель сообщения в чате региона. Соответствует таблице `messages`.
 class MessageModel {
   const MessageModel({
@@ -9,6 +11,7 @@ class MessageModel {
     this.text,
     this.photoUrl,
     this.authorAvatarUrl,
+    this.localPhotoBytes,
   });
 
   final String id;
@@ -19,6 +22,13 @@ class MessageModel {
   final String? text;
   final String? photoUrl;
   final String? authorAvatarUrl;
+
+  /// Байты фото для локального превью сообщений dev-пользователя (см.
+  /// комментарий в ChatController.sendPhoto) — такие сообщения никогда не
+  /// уходят в Supabase, поэтому фото показывается сразу из памяти через
+  /// Image.memory вместо URL. Работает одинаково на вебе и на Android, в
+  /// отличие от dart:io File, который на вебе недоступен.
+  final Uint8List? localPhotoBytes;
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
     return MessageModel(
@@ -45,6 +55,7 @@ class MessageModel {
       text: text,
       photoUrl: photoUrl,
       authorAvatarUrl: authorAvatarUrl ?? this.authorAvatarUrl,
+      localPhotoBytes: localPhotoBytes,
     );
   }
 

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
@@ -47,21 +46,24 @@ class ChatMessageBubble extends StatelessWidget {
                 ),
               ),
             ),
-          if (message.photoUrl != null)
+          if (message.localPhotoBytes != null || message.photoUrl != null)
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.file(
-                File(message.photoUrl!),
-                width: 200,
-                height: 150,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  width: 200,
-                  height: 150,
-                  color: AppColors.primaryLight,
-                  child: const Icon(Icons.image_not_supported_outlined),
-                ),
-              ),
+              child: message.localPhotoBytes != null
+                  ? Image.memory(
+                      message.localPhotoBytes!,
+                      width: 200,
+                      height: 150,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _photoPlaceholder(),
+                    )
+                  : Image.network(
+                      message.photoUrl!,
+                      width: 200,
+                      height: 150,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _photoPlaceholder(),
+                    ),
             ),
           if (message.text != null)
             Padding(
@@ -106,6 +108,15 @@ class ChatMessageBubble extends StatelessWidget {
           Flexible(child: bubble),
         ],
       ),
+    );
+  }
+
+  Widget _photoPlaceholder() {
+    return Container(
+      width: 200,
+      height: 150,
+      color: AppColors.primaryLight,
+      child: const Icon(Icons.image_not_supported_outlined),
     );
   }
 }

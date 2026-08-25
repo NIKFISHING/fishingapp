@@ -36,6 +36,7 @@ class SupabaseBuckets {
   SupabaseBuckets._();
 
   static const String avatars = 'avatars';
+  static const String chatPhotos = 'chat-photos';
 }
 
 /// Общие текстовые константы приложения.

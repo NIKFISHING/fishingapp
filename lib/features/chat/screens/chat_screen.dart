@@ -71,11 +71,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       imageQuality: 80,
     );
     if (photo == null) return;
-    ref.read(chatControllerProvider(widget.region.id).notifier).sendPhoto(
-          photo.path,
-          authorId: _userId,
-          authorName: _userName,
-        );
+    try {
+      await ref.read(chatControllerProvider(widget.region.id).notifier).sendPhoto(
+            photo,
+            authorId: _userId,
+            authorName: _userName,
+          );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось отправить фото. $error')),
+      );
+    }
   }
 
   @override

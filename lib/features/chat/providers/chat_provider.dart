@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../models/message_model.dart';
@@ -140,13 +141,32 @@ class ChatController extends StateNotifier<AsyncValue<List<MessageModel>>> {
     );
   }
 
-  /// Фото пока отправляется только локально: загрузка в Supabase Storage —
-  /// отдельный следующий шаг, здесь хранится лишь путь к файлу на устройстве.
-  void sendPhoto(
-    String photoPath, {
+  /// Отправка фото. У авторизованного пользователя — загрузка байтов в
+  /// Supabase Storage (бакет `chat-photos`) и запись сообщения с публичным
+  /// URL (само сообщение вернётся через realtime выше, как и sendText).
+  /// Читаем файл через XFile.readAsBytes() (не dart:io File) — так фото
+  /// отправляется одинаково на вебе и на Android.
+  ///
+  /// У dev-пользователя настоящей сессии нет, поэтому сообщение с фото
+  /// добавляется только локально — байты фото сохраняются в состоянии
+  /// контроллера и показываются через Image.memory (см. MessageModel и
+  /// ChatController._init).
+  Future<void> sendPhoto(
+    XFile photo, {
     required String authorId,
     required String authorName,
-  }) {
+  }) async {
+    if (SupabaseService.isAuthenticated) {
+      final photoUrl = await SupabaseService.uploadChatPhoto(photo, regionId: regionId);
+      await SupabaseService.client.from(SupabaseTables.messages).insert({
+        'region_id': regionId,
+        'author_id': authorId,
+        'photo_url': photoUrl,
+      });
+      return;
+    }
+
+    final bytes = await photo.readAsBytes();
     _appendLocal(
       MessageModel(
         id: 'local-${DateTime.now().microsecondsSinceEpoch}',
@@ -154,7 +174,7 @@ class ChatController extends StateNotifier<AsyncValue<List<MessageModel>>> {
         authorId: authorId,
         authorName: authorName,
         createdAt: DateTime.now(),
-        photoUrl: photoPath,
+        localPhotoBytes: bytes,
       ),
     );
   }

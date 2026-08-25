@@ -122,4 +122,25 @@ class SupabaseService {
     // Image.network не показывал закэшированную старую версию фото.
     return '$publicUrl?updated=${DateTime.now().millisecondsSinceEpoch}';
   }
+
+  /// Загружает фото сообщения чата в Supabase Storage (бакет `chat-photos`,
+  /// путь "{user_id}/{region_id}-{timestamp}.jpg") и возвращает публичный
+  /// URL. Читает файл как байты через XFile.readAsBytes(), а не через
+  /// dart:io File — на вебе dart:io недоступен, а XFile.readAsBytes()
+  /// работает одинаково на вебе и на Android (тот же подход, что и в
+  /// uploadAvatar). Требует настоящую сессию Supabase.
+  static Future<String> uploadChatPhoto(XFile photo, {required String regionId}) async {
+    final user = currentUser;
+    if (user == null) {
+      throw StateError('Нет авторизованного пользователя для загрузки фото.');
+    }
+    final bytes = await photo.readAsBytes();
+    final path = '${user.id}/$regionId-${DateTime.now().millisecondsSinceEpoch}.jpg';
+    await client.storage.from(SupabaseBuckets.chatPhotos).uploadBinary(
+          path,
+          bytes,
+          fileOptions: FileOptions(contentType: photo.mimeType ?? 'image/jpeg'),
+        );
+    return client.storage.from(SupabaseBuckets.chatPhotos).getPublicUrl(path);
+  }
 }
