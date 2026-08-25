@@ -1,31 +1,48 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/theme/app_colors.dart';
 import '../../services/supabase_service.dart';
+import '../auth/providers/auth_provider.dart';
 import '../auth/screens/phone_input_screen.dart';
 import '../main_navigation/main_navigation_screen.dart';
 
 /// Экран-заставка: логотип и автопереход либо на главный экран
 /// (если пользователь уже авторизован), либо на экран входа.
-class SplashScreen extends StatefulWidget {
+///
+/// Переход ждёт событие `initialSession` из `authStateChangesProvider` —
+/// Supabase эмитит его сразу после попытки восстановить сессию из
+/// локального хранилища (SharedPreferences на Android, localStorage в
+/// вебе), поэтому решение "куда вести" принимается по факту восстановления
+/// сессии, а не по угаданной задержке таймера. Таймер оставлен только как
+/// защита на случай, если событие почему-то не пришло.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
-    _navigateNext();
+    // Подстраховка: если событие initialSession не пришло за 3 секунды
+    // (например, из-за неожиданной ошибки в SDK), не оставляем
+    // пользователя навсегда на заставке.
+    Future.delayed(const Duration(seconds: 3), () {
+      _navigateNext(SupabaseService.isAuthenticated);
+    });
   }
 
-  Future<void> _navigateNext() async {
-    await Future.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
+  void _navigateNext(bool isAuthenticated) {
+    if (_navigated || !mounted) return;
+    _navigated = true;
 
-    final nextScreen = SupabaseService.isAuthenticated
+    final nextScreen = isAuthenticated
         ? const MainNavigationScreen()
         : const PhoneInputScreen();
 
@@ -36,6 +53,14 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AsyncValue<AuthState>>(authStateChangesProvider, (_, next) {
+      next.whenData((authState) {
+        if (authState.event == AuthChangeEvent.initialSession) {
+          _navigateNext(authState.session != null);
+        }
+      });
+    });
+
     return const Scaffold(
       backgroundColor: AppColors.primary,
       body: Center(
