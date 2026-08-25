@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../models/message_model.dart';
+import 'full_screen_photo_view.dart';
 
 /// Одно сообщение в списке чата: аватар-инициал, имя автора, текст/фото,
 /// время отправки.
@@ -47,23 +48,26 @@ class ChatMessageBubble extends StatelessWidget {
               ),
             ),
           if (message.localPhotoBytes != null || message.photoUrl != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: message.localPhotoBytes != null
-                  ? Image.memory(
-                      message.localPhotoBytes!,
-                      width: 200,
-                      height: 150,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _photoPlaceholder(),
-                    )
-                  : Image.network(
-                      message.photoUrl!,
-                      width: 200,
-                      height: 150,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _photoPlaceholder(),
-                    ),
+            GestureDetector(
+              onTap: () => _openFullScreen(context),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: message.localPhotoBytes != null
+                    ? Image.memory(
+                        message.localPhotoBytes!,
+                        width: 200,
+                        height: 150,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _photoPlaceholder(),
+                      )
+                    : Image.network(
+                        message.photoUrl!,
+                        width: 200,
+                        height: 150,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _photoPlaceholder(),
+                      ),
+              ),
             ),
           if (message.text != null)
             Padding(
@@ -107,6 +111,18 @@ class ChatMessageBubble extends StatelessWidget {
           const SizedBox(width: 6),
           Flexible(child: bubble),
         ],
+      ),
+    );
+  }
+
+  void _openFullScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => FullScreenPhotoView(
+          photoUrl: message.localPhotoBytes == null ? message.photoUrl : null,
+          photoBytes: message.localPhotoBytes,
+        ),
       ),
     );
   }
